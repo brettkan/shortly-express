@@ -2,7 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
-var cookieParser = require('cookie-parser');
+// var cookieParser = require('cookie-parser');
 var session = require('express-session');
 var bcrypt = require('bcrypt-nodejs');
 
@@ -14,45 +14,35 @@ var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 
 
-
-
 var app = express();
+// app.use(cookieParser('cookie_secret'));
 
-app.use(cookieParser('cookie_secret'));
+// Session module
 app.use(session({
   secret: 'cookie_secret',
   resave: true,
   saveUninitialized: true
 }));
 
-
-function restrict(req, res, next) {
-  if (req.session.user) {
-    next();
-  } else {
-    req.session.error = 'Access denied!';
-    res.redirect('/login');
-  }
-}
-
-
+// Views
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
 app.use(partials());
+
 // Parse JSON (uniform resource locators)
 app.use(bodyParser.json());
+
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
-app.get('/signup',
-function(req, res) {
+
+// Express routes
+app.get('/signup', function(req, res) {
   res.render('signup');
 });
 
-app.post('/signup',
-function(req, res) {
-
+app.post('/signup', function(req, res) {
   var username = req.body.username;
   var password = req.body.password;
   var salt = bcrypt.genSaltSync(10);
@@ -65,14 +55,11 @@ function(req, res) {
   });
 });
 
-app.get('/login',
-function(req, res) {
+app.get('/login', function(req, res) {
   res.render('login');
 });
 
-app.post('/login',
-function(req, res) {
-  var uri = req.body.url;
+app.post('/login', function(req, res) {
   var username = req.body.username;
   var password = req.body.password;
 
@@ -90,27 +77,21 @@ function(req, res) {
   })
 });
 
-app.get('/logout',
-function(req, res) {
+app.get('/logout', function(req, res) {
   req.session.destroy(function() {
     res.redirect('/login');
   });
 });
 
-app.get('/', restrict,
-function(req, res) {
+app.get('/', util.restrict, function(req, res) {
   res.render('index');
 });
 
-
-app.get('/create', restrict,
-function(req, res) {
+app.get('/create', util.restrict, function(req, res) {
   res.render('index');
 });
 
-app.get('/links', restrict,
-function(req, res) {
-
+app.get('/links', util.restrict, function(req, res) {
   Links.reset().fetch().then(function(links) {
 
     var userCollection = new db.Collection();
@@ -126,18 +107,11 @@ function(req, res) {
       })
 
       res.send(200, userCollection.models);
-
     });
-
   });
-
 });
 
-// select users.username, urls.url from users inner join users_urls on
-// users.id = users_urls.user_id inner join urls on users_urls.url_id = urls.id;
-
-app.post('/links',
-function(req, res) {
+app.post('/links', function(req, res) {
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
@@ -162,20 +136,9 @@ function(req, res) {
         });
 
         link.save().then(function(newLink) {
-
           var userId = req.session.user.id;
           var urlId = newLink.get('id');
           db.knex('users_urls').insert({user_id: userId, url_id: urlId}).then(function(data) {
-
-          // var currentUser = new User({username: req.session.user.get('username')}).fetch()
-          // .then(function(returnedUser) {
-          //   var userId = returnedUser.get('id');
-          //   var urlId = newLink.get('id');
-
-          //   db.knex('users_urls').insert({user_id: userId, url_id: urlId}).then(function(data) {
-          //     console.log(data);
-          //   });
-          // });
           });
 
           Links.add(newLink);
@@ -185,12 +148,6 @@ function(req, res) {
     }
   });
 });
-
-/************************************************************/
-// Write your authentication routes here
-/************************************************************/
-
-
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
